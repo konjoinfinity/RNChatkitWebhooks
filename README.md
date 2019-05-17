@@ -1,6 +1,8 @@
 # RNChatkitWebhooks
 A sample React Native chat app built with Chatkit which receives push notifications via Firebase and Chatkit Webhooks.
 
+Full tutorial is available at: [Integrating Chatkit webhooks in a React Native chat app](https://pusher.com/tutorials/webhooks-react-native-chat).
+
 The app has the following features:
 
 - Public and private rooms.
