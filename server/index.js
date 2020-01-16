@@ -1,6 +1,3 @@
-require("dotenv").config();
-// Will have to reconfigure this to load from .env
-
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -12,11 +9,9 @@ const randomId = require("random-id");
 const serviceAccount = require("./config/rnchatkitwebhooks.json");
 const app = express();
 
-// process.env.PROD_SECRET
-const INSTANCE_LOCATOR_ID = "13b5a647-a398-4bd3-af69-ee1c296817c4";
-const CHATKIT_SECRET =
-  "9274b7cc-b1f0-4f86-9f2f-703036d1928c:3oTvVqqYcST+RIkv0cP6nm9nau3O6yiJjuLhMcvjUuA=";
-const CHATKIT_WEBHOOK_SECRET = "konjo888konjo888konjo888";
+const INSTANCE_LOCATOR_ID = proccess.env.INSTANCE_LOCATOR_ID;
+const CHATKIT_SECRET = proccess.env.CHATKIT_SECRET;
+const CHATKIT_WEBHOOK_SECRET = proccess.env.CHATKIT_WEBHOOK_SECRET;
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
