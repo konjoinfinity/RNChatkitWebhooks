@@ -1,64 +1,68 @@
+require("dotenv").config();
+// Will have to reconfigure this to load from .env
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const Chatkit = require("@pusher/chatkit-server");
-
 const crypto = require("crypto");
 const admin = require("firebase-admin");
 const randomId = require("random-id");
 
 const serviceAccount = require("./config/rnchatkitwebhooks.json");
+const app = express();
+
+// process.env.PROD_SECRET
+const INSTANCE_LOCATOR_ID = "13b5a647-a398-4bd3-af69-ee1c296817c4";
+const CHATKIT_SECRET =
+  "9274b7cc-b1f0-4f86-9f2f-703036d1928c:3oTvVqqYcST+RIkv0cP6nm9nau3O6yiJjuLhMcvjUuA=";
+const CHATKIT_WEBHOOK_SECRET = "konjo888konjo888konjo888";
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
-
-require("dotenv").config();
-const app = express();
-
-const INSTANCE_LOCATOR_ID = process.env.CHATKIT_INSTANCE_LOCATOR_ID;
-const CHATKIT_SECRET = process.env.CHATKIT_SECRET_KEY;
-const CHATKIT_WEBHOOK_SECRET = process.env.CHATKIT_WEBHOOK_SECRET;
 
 const chatkit = new Chatkit.default({
   instanceLocator: `v1:us1:${INSTANCE_LOCATOR_ID}`,
   key: CHATKIT_SECRET
 });
 
-const device_token = 'DEVICE REGISTRATION TOKEN OF YOUR TEST DEVICE';
+const device_token = "DEVICE REGISTRATION TOKEN OF YOUR TEST DEVICE";
 app.use(cors());
 
 app.use(
   bodyParser.text({
-    type: (req) => {
-      const contype = req.headers['content-type'];
-      if (contype === 'application/json') {
+    type: req => {
+      const contype = req.headers["content-type"];
+      if (contype === "application/json") {
         return true;
       }
       return false;
-    },
-  }),
+    }
+  })
 );
 
 app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.json({
-  type: (req) => {
-    const contype = req.headers['content-type'];
-    if (contype !== 'application/json') {
-      return true;
+app.use(
+  bodyParser.json({
+    type: req => {
+      const contype = req.headers["content-type"];
+      if (contype !== "application/json") {
+        return true;
+      }
+      return false;
     }
-    return false;
-  }
-}));
+  })
+);
 
-const verifyRequest = (req) => {
+const verifyRequest = req => {
   const signature = crypto
     .createHmac("sha1", WEBHOOK_SECRET)
     .update(req.body)
-    .digest("hex")
+    .digest("hex");
 
-  return signature === req.get("webhook-signature")
-}
+  return signature === req.get("webhook-signature");
+};
 
 app.post("/auth", (req, res) => {
   const { user_id } = req.query;
@@ -66,22 +70,19 @@ app.post("/auth", (req, res) => {
     userId: user_id
   });
 
-  res.status(authData.status)
-     .send(authData.body);
+  res.status(authData.status).send(authData.body);
 });
-
 
 app.post("/user", async (req, res) => {
   const { username } = req.body;
   try {
     const users = await chatkit.getUsers();
-    const user = users.find((usr) => usr.name == username);
+    const user = users.find(usr => usr.name == username);
     res.send({ user });
   } catch (get_user_err) {
     console.log("error getting user: ", get_user_err);
   }
 });
-
 
 app.post("/rooms", async (req, res) => {
   const { user_id } = req.body;
@@ -89,7 +90,7 @@ app.post("/rooms", async (req, res) => {
     const rooms = await chatkit.getUserRooms({
       userId: user_id
     });
-    rooms.map((item) => {
+    rooms.map(item => {
       item.joined = true;
       return item;
     });
@@ -97,7 +98,7 @@ app.post("/rooms", async (req, res) => {
     const joinable_rooms = await chatkit.getUserJoinableRooms({
       userId: user_id
     });
-    joinable_rooms.map((item) => {
+    joinable_rooms.map(item => {
       item.joined = false;
       return item;
     });
@@ -110,7 +111,6 @@ app.post("/rooms", async (req, res) => {
   }
 });
 
-
 app.post("/user/join", async (req, res) => {
   const { room_id, user_id } = req.body;
   try {
@@ -121,23 +121,23 @@ app.post("/user/join", async (req, res) => {
 
     await chatkit.assignRoomRoleToUser({
       userId: user_id,
-      name: 'new_room_member',
+      name: "new_room_member",
       roomId: room_id
     });
 
-    res.send('ok');
+    res.send("ok");
   } catch (user_permissions_err) {
     console.log("error getting user permissions: ", user_permissions_err);
   }
 });
 
-
+// Will have to modify to allow for users to pass their own creatorId
 app.get("/create-room/:name/:private", async (req, res) => {
   try {
     const { name, private } = req.params;
-    const is_private = (private === 'true') ? true : false;
+    const is_private = private === "true" ? true : false;
     const room = await chatkit.createRoom({
-      creatorId: 'root',
+      creatorId: "konjo",
       name: name,
       isPrivate: is_private
     });
@@ -173,7 +173,6 @@ app.get("/create-and-assign-user/:username/:room_id", async (req, res) => {
   }
 });
 
-
 const sendNotification = (title, body, device_token) => {
   const notification_payload = {
     notification: {
@@ -182,30 +181,32 @@ const sendNotification = (title, body, device_token) => {
     }
   };
 
-  admin.messaging().sendToDevice(device_token, notification_payload)
-    .then((response) => {
-      console.log('sent notification!', response);
+  admin
+    .messaging()
+    .sendToDevice(device_token, notification_payload)
+    .then(response => {
+      console.log("sent notification!", response);
     })
-    .catch((notify_err) => {
-      console.log('notify err: ', notify_err);
+    .catch(notify_err => {
+      console.log("notify err: ", notify_err);
     });
-  
-  console.log(title, body, device_token);
-}
 
-const shortMessage = (message) => {
+  console.log(title, body, device_token);
+};
+
+const shortMessage = message => {
   return message.substr(0, 37) + "...";
-}
+};
 
 const sendNotificationToUsers = (users, title, body) => {
   if (users.length) {
-    users.forEach((user) => {
+    users.forEach(user => {
       sendNotification(title, body, user.custom_data.device_token);
     });
   }
-}
+};
 
-const getUsersById = async(user_ids) => {
+const getUsersById = async user_ids => {
   try {
     const users = await chatkit.getUsersById({
       userIds: user_ids
@@ -214,9 +215,9 @@ const getUsersById = async(user_ids) => {
   } catch (err) {
     console.log("error getting users: ", err);
   }
-}
+};
 
-const getRoom = async(room_id) => {
+const getRoom = async room_id => {
   try {
     const room = await chatkit.getRoom({
       roomId: room_id
@@ -225,65 +226,77 @@ const getRoom = async(room_id) => {
   } catch (err) {
     console.log("error getting room: ", err);
   }
-}
+};
 
-const getUser = async(user_id) => {
+const getUser = async user_id => {
   try {
     const user = await chatkit.getUser({
-      id: user_id,
+      id: user_id
     });
     return user;
   } catch (err) {
     console.log("error getting user: ", err);
   }
-}
+};
 
-const notifyOfflineUsers = async({ payload }) => {
+const notifyOfflineUsers = async ({ payload }) => {
   const sender = payload.sender.name;
   const message = payload.message.parts[0].content;
   const short_message = shortMessage(message);
   const offline_user_ids = payload.offline_user_ids;
-  
+
   try {
     const users = await getUsersById(offline_user_ids);
     sendNotificationToUsers(users, sender, short_message);
   } catch (err) {
     console.log("error notifying offline users: ", err);
   }
-}
+};
 
-const notifyOnUserAddedToRoom = async({ payload }) => {
+const notifyOnUserAddedToRoom = async ({ payload }) => {
   const { id: room_id, name: room_name, private: is_private } = payload.room;
   const { id: user_id, name: user_name } = payload.users[0];
- 
+
   if (is_private) {
     try {
       const room_data = await getRoom(room_id);
-      const room_member_ids = room_data.member_user_ids.filter(id => id != user_id);
+      const room_member_ids = room_data.member_user_ids.filter(
+        id => id != user_id
+      );
       const users = await getUsersById(room_member_ids);
-      sendNotificationToUsers(users, 'system', `${user_name} joined ${room_name}`); 
+      sendNotificationToUsers(
+        users,
+        "system",
+        `${user_name} joined ${room_name}`
+      );
     } catch (err) {
       console.log("error notifying user added to room: ", err);
     }
   }
-}
+};
 
-const notifyOnUserLeftRoom = async({ payload }) => {
+const notifyOnUserLeftRoom = async ({ payload }) => {
   const { id: room_id, name: room_name, private: is_private } = payload.room;
   const { id: user_id, name: user_name } = payload.user;
   if (is_private) {
     try {
       const room_data = await getRoom(room_id);
-      const room_member_ids = room_data.member_user_ids.filter(id => id != user_id);
+      const room_member_ids = room_data.member_user_ids.filter(
+        id => id != user_id
+      );
       const users = await getUsersById(room_member_ids);
-      sendNotificationToUsers(users, 'system', `${user_name} left ${room_name}`); 
+      sendNotificationToUsers(
+        users,
+        "system",
+        `${user_name} left ${room_name}`
+      );
     } catch (err) {
       console.log("error notifying user left room: ", err);
-    }    
+    }
   }
-}
+};
 
-const notifyMentionedUsers = async({ payload }) => {
+const notifyMentionedUsers = async ({ payload }) => {
   try {
     const sender_id = payload.messages[0].user_id;
     const sender = await getUser(sender_id);
@@ -295,25 +308,23 @@ const notifyMentionedUsers = async({ payload }) => {
     const room_data = await getRoom(room_id);
     const room_members = await getUsersById(room_data.member_user_ids);
     const mentions = message.match(/@[a-zA-Z0-9]+/g) || [];
-    
-    const mentioned_users = room_members.filter((user) => {
+
+    const mentioned_users = room_members.filter(user => {
       return mentions.indexOf(`@${user.name}`) !== -1;
     });
 
-    sendNotificationToUsers(mentioned_users, sender.name, short_message); 
+    sendNotificationToUsers(mentioned_users, sender.name, short_message);
   } catch (err) {
     console.log("error notifying mentioned users: ", err);
   }
-}
-
+};
 
 const notification_types = {
-  'v1.message_sent_user_offline': notifyOfflineUsers,
-  'v1.users_added_to_room': notifyOnUserAddedToRoom,
-  'v1.user_left_room': notifyOnUserLeftRoom,
-  'v1.messages_created': notifyMentionedUsers
-}
-
+  "v1.message_sent_user_offline": notifyOfflineUsers,
+  "v1.users_added_to_room": notifyOnUserAddedToRoom,
+  "v1.user_left_room": notifyOnUserLeftRoom,
+  "v1.messages_created": notifyMentionedUsers
+};
 
 app.post("/notify", (req, res) => {
   console.log("webhook triggered! ", req.body);
@@ -328,9 +339,8 @@ app.post("/notify", (req, res) => {
   }
 });
 
-
 const PORT = 5000;
-app.listen(PORT, (err) => {
+app.listen(PORT, err => {
   if (err) {
     console.error(err);
   } else {
